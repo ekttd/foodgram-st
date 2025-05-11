@@ -1,13 +1,16 @@
-# foodgram/urls.py
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path, include
-from django.http import JsonResponse
-
-# Обработчик запроса на /ping
-def ping_view(request):
-    return JsonResponse({'message': 'pong'})
+from django.urls import include, path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('recipes.urls')),
+    path('api/', include('api.urls', namespace='api')),
 ]
+
+if settings.DEBUG:
+    urlpatterns = (
+        urlpatterns
+        + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+        + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    )
