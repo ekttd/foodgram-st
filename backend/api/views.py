@@ -16,13 +16,15 @@ from rest_framework.validators import ValidationError
 from users.models import Follow
 from django.core.files.base import ContentFile
 import base64
+import uuid
 
 from .permissions import AdminOrReadOnly, IsOwnerOrReadOnly
 from .serializers import (CustomUserPostSerializer, CustomUserSerializer,
                           FollowSerializer, FollowToSerializer,
                           IngredientSerializer, PasswordSerializer,
                           RecipeAddSerializer, RecipePartSerializer,
-                          RecipeSerializer, TagSerializer)
+                          RecipeReadSerializer, RecipeWriteSerializer,
+                          RecipeReadSerializer, TagSerializer)
 
 User = get_user_model()
 
@@ -37,6 +39,7 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     pagination_class = CustomPagination
+    http_method_names = ['get', 'post', 'put', 'patch', 'delete']
 
     def get_serializer_class(self):
         if self.action in ('list', 'retrieve'):
@@ -51,59 +54,51 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer = CustomUserSerializer(user)
         return Response(serializer.data)
 
-    @action(methods=["post"], detail=False)
+    @action(methods=["post"], detail=False, permission_classes=[IsAuthenticated])
     def set_password(self, request, *args, **kwargs):
         user = self.request.user
-        serializer = PasswordSerializer(data=request.data)
+        serializer = PasswordSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             user.set_password(serializer.validated_data["new_password"])
             user.save()
-            return Response({"status": "password set"})
-        else:
-            return Response(
-                serializer.errors, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     @action(
         detail=False,
-        methods=['put', 'patch'],
+        methods=['put', 'patch', 'delete'],
         permission_classes=[IsAuthenticated],
         url_path='me/avatar'
     )
     def upload_avatar(self, request):
         user = request.user
-        if 'avatar' not in request.data:
+
+        if request.method == 'DELETE':
+            user.avatar.delete(save=True)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        avatar_data = request.data.get('avatar')
+        if not avatar_data:
             return Response(
-                {'error': 'No avatar provided'},
+                {'detail': 'Файл avatar обязателен.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-    
-        avatar_data = request.data['avatar']
-    
-        try:
-            if isinstance(avatar_data, str) and avatar_data.startswith('data:image'):
-                format, imgstr = avatar_data.split(';base64,')
-                ext = format.split('/')[-1]
-                data = ContentFile(base64.b64decode(imgstr), name=f'avatar.{ext}')
-                user.avatar.save(f'avatar.{ext}', data, save=True)
 
-            elif hasattr(avatar_data, 'content_type') and avatar_data.content_type.startswith('image/'):
-                user.avatar.save(avatar_data.name, avatar_data, save=True)
-            else:
-                return Response(
-                    {'error': 'Invalid image format'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
+        if avatar_data.startswith('data:image'):
+            format, imgstr = avatar_data.split(';base64,')
+            ext = format.split('/')[-1]
+            avatar = ContentFile(base64.b64decode(imgstr), name=f"{uuid.uuid4()}.{ext}")
+            user.avatar = avatar
+            user.save()
             return Response(
-                {"avatar": user.avatar.url if user.avatar else None},
+                {"avatar": request.build_absolute_uri(user.avatar.url)},
                 status=status.HTTP_200_OK
             )
-            
-        except Exception as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+
+        return Response(
+            {"detail": "Неверный формат изображения."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class FollowView(ListAPIView):
@@ -183,9 +178,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filterset_class = RecipeFilter
 
     def get_serializer_class(self):
-        if self.action in ('list', 'retrieve'):
-            return RecipeSerializer
-        return RecipeAddSerializer
+        if self.request.method in ['POST', 'PUT', 'PATCH']:
+            return RecipeWriteSerializer
+        return RecipeReadSerializer
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -193,14 +188,40 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=True,
-        methods=('post', 'delete'),
-        permission_classes=(IsAuthenticated,)
+        methods=['post', 'delete'],
+        permission_classes=[IsAuthenticated]
     )
     def favorite(self, request, pk=None):
+        user = request.user
+        if not Recipe.objects.filter(pk=pk).exists():
+            return Response(
+                {"detail": "Рецепт не найден."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        recipe = Recipe.objects.get(pk=pk)
+
         if request.method == 'POST':
-            return self.add_recipe(Favorite, request, pk)
-        else:
-            return self.delete_recipe(Favorite, request, pk)
+            if Favorite.objects.filter(user=user, recipe=recipe).exists():
+                return Response(
+                    {'detail': 'Рецепт уже в избранном.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            Favorite.objects.create(user=user, recipe=recipe)
+            return Response(
+                {'detail': 'Рецепт добавлен в избранное.'},
+                status=status.HTTP_201_CREATED
+            )
+
+        if request.method == 'DELETE':
+            favorite = Favorite.objects.filter(user=user, recipe=recipe).first()
+            if not favorite:
+                return Response(
+                    {'detail': 'Рецепт не находится в избранном.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            favorite.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
         detail=True,
@@ -217,16 +238,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
         detail=False,
         permission_classes=(IsAuthenticated,)
     )
-    #def download_shopping_cart(self, request):
-    #    ingredients = IngredientAmount.objects.filter(
-    #        recipe__carts__user=request.user
-    #    ).values(
-    #        'ingredient__name', 'ingredient__measurement_unit'
-    #    ).order_by(
-    #        'ingredient__name'
-    #    ).annotate(ingredient_amount=Sum('amount'))
-    #    return getpdf(ingredients)
-
     def add_recipe(self, model, request, pk):
         recipe = get_object_or_404(Recipe, pk=pk)
         user = self.request.user

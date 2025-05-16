@@ -35,7 +35,7 @@ class Tag(models.Model):
 
 
 class Ingredient(models.Model):
-    """Базовый ингридиент"""
+    """Ингридиент"""
 
     name = models.CharField(
         verbose_name='Название',
@@ -71,7 +71,7 @@ class Recipe(models.Model):
     )
     image = models.ImageField(
         verbose_name='Картинка',
-        upload_to='food/images/',
+        upload_to='food/',
     )
     text = models.TextField(
         verbose_name='Описание',
@@ -79,7 +79,6 @@ class Recipe(models.Model):
     )
     ingredients = models.ManyToManyField(
         Ingredient,
-        verbose_name='Ингредиенты',
         through="IngredientAmount",
     )
     tags = models.ManyToManyField(
@@ -137,7 +136,7 @@ class IngredientAmount(models.Model):
 
 
 class Favorite(models.Model):
-    """Избранные рецепты"""
+    """Избранное"""
 
     recipe = models.ForeignKey(
         Recipe,

@@ -17,8 +17,8 @@ router.register('recipes', RecipeViewSet, basename='recipes')
 urlpatterns = [
     path('users/subscriptions/', FollowView.as_view()),
     path('users/<int:pk>/subscribe/', FollowToView.as_view()),
-    path('users/me/avatar/', UserViewSet.as_view({'put': 'upload_avatar'}),
-         name='avatar-upload'),
+
     path('', include(router.urls)),
     path('auth/', include('djoser.urls.authtoken')),
+
 ]
