@@ -61,7 +61,7 @@ class Recipe(models.Model):
 
     name = models.CharField(
         verbose_name='Название',
-        max_length=400
+        max_length=256
     )
     author = models.ForeignKey(
         User,
@@ -72,10 +72,12 @@ class Recipe(models.Model):
     image = models.ImageField(
         verbose_name='Картинка',
         upload_to='food/',
+        null=False,
+        blank=False
     )
     text = models.TextField(
         verbose_name='Описание',
-        max_length=15000
+        max_length=3000
     )
     ingredients = models.ManyToManyField(
         Ingredient,

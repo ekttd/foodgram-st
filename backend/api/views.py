@@ -17,6 +17,7 @@ from users.models import Follow
 from django.core.files.base import ContentFile
 import base64
 import uuid
+from django.http import HttpResponse
 
 from .permissions import AdminOrReadOnly, IsOwnerOrReadOnly
 from .serializers import (CustomUserPostSerializer, CustomUserSerializer,
@@ -131,9 +132,12 @@ class FollowToView(views.APIView):
     def delete(self, request, pk):
         author = get_object_or_404(User, pk=pk)
         user = self.request.user
-        following = get_object_or_404(
-            Follow, user=user, author=author
-        )
+        following = Follow.objects.filter(user=user, author=author).first()
+        if not following:
+            return Response(
+                {'detail': 'Подписка не найдена.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         following.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -208,10 +212,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             Favorite.objects.create(user=user, recipe=recipe)
-            return Response(
-                {'detail': 'Рецепт добавлен в избранное.'},
-                status=status.HTTP_201_CREATED
-            )
+            serializer = RecipePartSerializer(recipe, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         if request.method == 'DELETE':
             favorite = Favorite.objects.filter(user=user, recipe=recipe).first()
@@ -250,6 +252,46 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def delete_recipe(self, model, request, pk):
         recipe = get_object_or_404(Recipe, pk=pk)
         user = self.request.user
-        obj = get_object_or_404(model, recipe=recipe, user=user)
+        obj = model.objects.filter(recipe=recipe, user=user).first()
+        if not obj:
+            return Response(
+                {'detail': 'Рецепт не находится в корзине.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    @action(
+        detail=False,
+        methods=['get'],
+        permission_classes=[IsAuthenticated],
+        url_path='download_shopping_cart'
+    )
+    def download_shopping_cart(self, request):
+        """Скачивание списка покупок в текстовом файле."""
+
+        ingredients = IngredientAmount.objects.filter(
+            recipe__carts__user=request.user
+        ).values(
+            'ingredient__name',
+            'ingredient__measurement_unit'
+        ).annotate(total=Sum('amount'))
+
+        shopping_list = 'Список покупок:\n\n'
+        for item in ingredients:
+            shopping_list += (
+                f"{item['ingredient__name']} "
+                f"({item['ingredient__measurement_unit']}) — "
+                f"{item['total']}\n"
+            )
+
+        response = HttpResponse(shopping_list, content_type='text/plain')
+        response['Content-Disposition'] = 'attachment; filename="shopping_list.txt"'
+        return response
+
+    @action(detail=True, methods=['get'], url_path='get-link')
+    def get_link(self, request, pk=None):
+        short_link = f"https://short.url/recipe/{pk}/"
+        return Response({'short-link': short_link}, status=status.HTTP_200_OK)
+    
+
