@@ -1,6 +1,6 @@
-from core.filters import RecipeFilter
-from core.pagination import CustomPagination
-#from core.pdf_download import getpdf
+from rest_framework.reverse import reverse
+from .filters import RecipeFilter
+from .pagination import CustomPagination
 from django.contrib.auth import get_user_model
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404
@@ -18,7 +18,6 @@ from django.core.files.base import ContentFile
 import base64
 import uuid
 from django.http import HttpResponse
-
 from .permissions import AdminOrReadOnly, IsOwnerOrReadOnly
 from .serializers import (CustomUserPostSerializer, CustomUserSerializer,
                           FollowSerializer, FollowToSerializer,
@@ -172,7 +171,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     Рецепты.
     Фильтрация по параметрам, пагинация.
     Добавление/удаление из избранного/корзины.
-    Скачивание PDF списка корзины.
+    Скачивание списка корзины.
     """
 
     queryset = Recipe.objects.all()
@@ -244,7 +243,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         recipe = get_object_or_404(Recipe, pk=pk)
         user = self.request.user
         if model.objects.filter(recipe=recipe, user=user).exists():
-            raise ValidationError('Already added.')
+            raise ValidationError('Уже добавдено.')
         model.objects.create(recipe=recipe, user=user)
         serializer = RecipePartSerializer(recipe)
         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
@@ -261,37 +260,45 @@ class RecipeViewSet(viewsets.ModelViewSet):
         obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
-    @action(
-        detail=False,
-        methods=['get'],
-        permission_classes=[IsAuthenticated],
-        url_path='download_shopping_cart'
-    )
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def download_shopping_cart(self, request):
-        """Скачивание списка покупок в текстовом файле."""
-
+        user = request.user
+        recipes = Recipe.objects.filter(carts__user=user)
         ingredients = IngredientAmount.objects.filter(
-            recipe__carts__user=request.user
+            recipe__in=recipes
         ).values(
             'ingredient__name',
             'ingredient__measurement_unit'
-        ).annotate(total=Sum('amount'))
+        ).annotate(
+            total_amount=Sum('amount')
+        ).order_by('ingredient__name')
 
-        shopping_list = 'Список покупок:\n\n'
+        shopping_list = ''
         for item in ingredients:
-            shopping_list += (
-                f"{item['ingredient__name']} "
-                f"({item['ingredient__measurement_unit']}) — "
-                f"{item['total']}\n"
-            )
+            name = item['ingredient__name']
+            unit = item['ingredient__measurement_unit']
+            amount = item['total_amount']
+            shopping_list += f'{name} — {amount} {unit}\n'
 
+        filename = f'shopping_list_{user.username}.txt'
         response = HttpResponse(shopping_list, content_type='text/plain')
-        response['Content-Disposition'] = 'attachment; filename="shopping_list.txt"'
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
 
-    @action(detail=True, methods=['get'], url_path='get-link')
-    def get_link(self, request, pk=None):
-        short_link = f"https://short.url/recipe/{pk}/"
-        return Response({'short-link': short_link}, status=status.HTTP_200_OK)
-    
-
+    @action(
+        detail=True,
+        methods=("get",),
+        url_path="get-link",
+        url_name="get-link",
+    )
+    def get_link(self, request, pk):
+        get_object_or_404(Recipe, pk=pk)
+        link = reverse(
+            viewname='api:recipes-get-link',
+            kwargs={'pk': pk},
+            request=request
+        )
+        
+        return Response({
+            "short-link": request.build_absolute_uri(link)
+        })
