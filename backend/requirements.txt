@@ -12,8 +12,10 @@ djangorestframework_simplejwt==5.5.0
 djoser==2.3.1
 drf-extra-fields==3.7.0
 filetype==1.2.0
+gunicorn==23.0.0
 idna==3.10
 oauthlib==3.2.2
+packaging==25.0
 pillow==11.2.1
 pycparser==2.22
 PyJWT==2.9.0
