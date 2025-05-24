@@ -3,10 +3,7 @@ from rest_framework.permissions import (SAFE_METHODS, BasePermission,
 
 
 class AdminOrReadOnly(BasePermission):
-    """
-    Разрешение на создание и изменение только для админов.
-    Остальным только чтение объекта.
-    """
+    """Разрешение на создание и изменение только для админов."""
 
     def has_object_permission(self, request, view, obj):
         return (
@@ -17,11 +14,7 @@ class AdminOrReadOnly(BasePermission):
 
 
 class IsOwnerOrReadOnly(IsAuthenticatedOrReadOnly):
-    """
-    Разрешение на создание и изменение только для автора
-    или админа.
-    Остальным только чтение объекта.
-    """
+    """Разрешение на создание и изменение только для автора или админа."""
 
     def has_object_permission(self, request, view, obj):
         return (

@@ -7,8 +7,8 @@ User = get_user_model()
 
 class RecipeFilter(FilterSet):
     """
-    Фильтр по выбранному автору,комбинации тегов,
-    "в избранном"(bool),"в корзине"(bool).
+    Фильтр по выбранному автору, комбинации тегов,
+    в избранном, в корзине.
     """
     author = filters.ModelChoiceFilter(queryset=User.objects.all())
     tags = filters.ModelMultipleChoiceFilter(
@@ -31,7 +31,7 @@ class RecipeFilter(FilterSet):
         if value:
             return queryset.filter(favorites__user=self.request.user)
         return queryset.exclude(favorites__user=self.request.user)
-    
+
     def get_is_in_shopping_cart(self, queryset, name, value):
         if not self.request.user.is_authenticated:
             return queryset.none()

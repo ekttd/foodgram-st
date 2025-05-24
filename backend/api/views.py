@@ -22,19 +22,15 @@ from .permissions import AdminOrReadOnly, IsOwnerOrReadOnly
 from .serializers import (CustomUserPostSerializer, CustomUserSerializer,
                           FollowSerializer, FollowToSerializer,
                           IngredientSerializer, PasswordSerializer,
-                          RecipeAddSerializer, RecipePartSerializer,
+                          RecipePartSerializer, TagSerializer,
                           RecipeReadSerializer, RecipeWriteSerializer,
-                          RecipeReadSerializer, TagSerializer)
+                          )
 
 User = get_user_model()
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    """
-    Кастомный Вьюсет для User.
-    Реализован отлично от библиотеки djoser
-    для установки пагинации.
-    """
+    """Кастомный Вьюсет для User."""
 
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
@@ -54,10 +50,12 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer = CustomUserSerializer(user)
         return Response(serializer.data)
 
-    @action(methods=["post"], detail=False, permission_classes=[IsAuthenticated])
+    @action(methods=["post"], detail=False,
+            permission_classes=[IsAuthenticated])
     def set_password(self, request, *args, **kwargs):
         user = self.request.user
-        serializer = PasswordSerializer(data=request.data, context={'request': request})
+        serializer = PasswordSerializer(data=request.data,
+                                        context={'request': request})
         if serializer.is_valid():
             user.set_password(serializer.validated_data["new_password"])
             user.save()
@@ -87,7 +85,8 @@ class UserViewSet(viewsets.ModelViewSet):
         if avatar_data.startswith('data:image'):
             format, imgstr = avatar_data.split(';base64,')
             ext = format.split('/')[-1]
-            avatar = ContentFile(base64.b64decode(imgstr), name=f"{uuid.uuid4()}.{ext}")
+            avatar = ContentFile(base64.b64decode(imgstr),
+                                 name=f"{uuid.uuid4()}.{ext}")
             user.avatar = avatar
             user.save()
             return Response(
@@ -142,20 +141,14 @@ class FollowToView(views.APIView):
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    Теги.
-    Изменение и создание тэгов разрешено только админам.
-    """
+    """Теги."""
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = (AdminOrReadOnly,)
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    Ингридиенты.
-    Поиск по вхождению в название.
-    """
+    """Ингридиенты, поиск по вхождению в название."""
 
     class CustomSearchFilter(filters.SearchFilter):
         search_param = "name"
@@ -167,12 +160,7 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
-    """
-    Рецепты.
-    Фильтрация по параметрам, пагинация.
-    Добавление/удаление из избранного/корзины.
-    Скачивание списка корзины.
-    """
+    """Рецепты, фильтрация по параметрам, пагинация."""
 
     queryset = Recipe.objects.all()
     permission_classes = (IsOwnerOrReadOnly,)
@@ -211,11 +199,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             Favorite.objects.create(user=user, recipe=recipe)
-            serializer = RecipePartSerializer(recipe, context={'request': request})
+            serializer = RecipePartSerializer(recipe,
+                                              context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         if request.method == 'DELETE':
-            favorite = Favorite.objects.filter(user=user, recipe=recipe).first()
+            favorite = Favorite.objects.filter(user=user,
+                                               recipe=recipe).first()
             if not favorite:
                 return Response(
                     {'detail': 'Рецепт не находится в избранном.'},
@@ -259,8 +249,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
             )
         obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+
+    @action(detail=False, methods=['get'],
+            permission_classes=[IsAuthenticated])
     def download_shopping_cart(self, request):
         user = request.user
         recipes = Recipe.objects.filter(carts__user=user)
@@ -298,7 +289,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             kwargs={'pk': pk},
             request=request
         )
-        
+
         return Response({
             "short-link": request.build_absolute_uri(link)
         })
