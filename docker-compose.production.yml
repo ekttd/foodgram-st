@@ -1,0 +1,39 @@
+version: '3'
+
+volumes:
+  pg_prod:
+  static:
+  media:
+
+services:
+  db:
+    container_name: postgre_db_prod
+    image: postgres:13.10
+    env_file: .env
+    volumes:
+      - pg_prod:/var/lib/postgresql/data
+
+  backend:
+    container_name: backend_prod
+    image: ekttd/backend
+    volumes:
+      - static:/backend_static
+      - media:/backend_media
+    env_file: .env
+
+  frontend:
+    container_name: frontend_prod
+    image: ekttd/frontend
+    command: cp -r /app/build/. /static/
+    volumes:
+      - static:/static/
+
+  gateway:
+    container_name: nginx_prod
+    image: ekttd/gateway
+    env_file: .env
+    ports:
+      - 9000:80
+    volumes:
+      - static:/static
+      - media:/backend_media
