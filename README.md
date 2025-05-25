@@ -19,7 +19,7 @@
 ```bash
 git clone https://github.com/ekttd/foodgram-st.git
 ```
-В корне проекта создайте .evn и заполните данными
+В корне проекта создайте .env и заполните данными
 ```.env
 SECRET_KEY="..."                      # используйте свой ключ
 DB_ENGINE=django.db.backends.postgresql
