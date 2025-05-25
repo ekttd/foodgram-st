@@ -16,7 +16,8 @@ class User(AbstractUser):
 
     first_name = models.CharField(('first name'), max_length=150, blank=False)
     last_name = models.CharField(('last name'), max_length=150, blank=False)
-    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, default='avatars/default.jpg')
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True,
+                               default='avatars/default.jpg')
 
     class Meta:
         verbose_name = 'Пользователь'

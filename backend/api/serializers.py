@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from djoser.serializers import UserCreateSerializer, UserSerializer
 from drf_extra_fields.fields import Base64ImageField
-from recipes.models import (Cart, Favorite, Ingredient, IngredientAmount,
+from recipes.models import (Cart, Favorite, IngredientAmount,
                             Recipe, Tag)
 from rest_framework import serializers
 from users.models import Follow
@@ -223,7 +223,8 @@ class AddIngredientSerializer(serializers.ModelSerializer):
 class IngredientAmountReadSerializer(serializers.ModelSerializer):
     id = serializers.ReadOnlyField(source='ingredient.id')
     name = serializers.ReadOnlyField(source='ingredient.name')
-    measurement_unit = serializers.ReadOnlyField(source='ingredient.measurement_unit')
+    measurement_unit = serializers.ReadOnlyField(
+        source='ingredient.measurement_unit')
     amount = serializers.IntegerField()
 
     class Meta:
