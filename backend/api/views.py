@@ -54,13 +54,14 @@ class UserViewSet(viewsets.ModelViewSet):
             permission_classes=[IsAuthenticated])
     def set_password(self, request, *args, **kwargs):
         user = self.request.user
-        serializer = PasswordSerializer(data=request.data,
-                                        context={'request': request})
-        if serializer.is_valid():
-            user.set_password(serializer.validated_data["new_password"])
-            user.save()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer = PasswordSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        user.set_password(serializer.validated_data["new_password"])
+        user.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
         detail=False,
@@ -130,7 +131,7 @@ class FollowToView(views.APIView):
     def delete(self, request, pk):
         author = get_object_or_404(User, pk=pk)
         user = self.request.user
-        following = Follow.objects.filter(user=user, author=author).first()
+        following = user.follower.filter(author=author).first()
         if not following:
             return Response(
                 {'detail': 'Подписка не найдена.'},
@@ -193,7 +194,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         recipe = Recipe.objects.get(pk=pk)
 
         if request.method == 'POST':
-            if Favorite.objects.filter(user=user, recipe=recipe).exists():
+            if recipe.favorited_by.filter(user=user).exists():
                 return Response(
                     {'detail': 'Рецепт уже в избранном.'},
                     status=status.HTTP_400_BAD_REQUEST
@@ -204,8 +205,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         if request.method == 'DELETE':
-            favorite = Favorite.objects.filter(user=user,
-                                               recipe=recipe).first()
+            favorite = recipe.favorited_by.filter(user=user).first()
+
             if not favorite:
                 return Response(
                     {'detail': 'Рецепт не находится в избранном.'},
