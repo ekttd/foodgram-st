@@ -13,7 +13,6 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.validators import ValidationError
-from users.models import Follow
 from django.core.files.base import ContentFile
 import base64
 import uuid

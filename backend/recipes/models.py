@@ -2,10 +2,8 @@ from django.contrib.auth import get_user_model
 from django.core.validators import (MaxValueValidator, MinValueValidator,
                                     RegexValidator)
 from django.db import models
-
+from api.constants import MIN_COOKING_TIME, MAX_COOKING_TIME
 User = get_user_model()
-MIN_COOKING_TIME = 1
-MAX_COOKING_TIME = 32000
 
 
 class Tag(models.Model):
@@ -94,7 +92,7 @@ class Recipe(models.Model):
         validators=[
             MinValueValidator(MIN_COOKING_TIME),
             MaxValueValidator(MAX_COOKING_TIME)
-            ]
+        ]
     )
     pub_date = models.DateTimeField(
         verbose_name='Дата публикации',

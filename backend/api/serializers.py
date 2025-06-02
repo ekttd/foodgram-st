@@ -1,20 +1,16 @@
 from django.contrib.auth import get_user_model
-from django.db import transaction
 from djoser.serializers import UserCreateSerializer, UserSerializer
 from drf_extra_fields.fields import Base64ImageField
 from recipes.models import (Cart, Favorite, IngredientAmount,
                             Recipe, Tag)
 from rest_framework import serializers
 from users.models import Follow
-
+from .constants import (MIN_COOKING_TIME, MAX_COOKING_TIME,
+                        MIN_INGREDIENT_AMOUNT, MAX_INGREDIENT_AMOUNT)
 from rest_framework.exceptions import ValidationError
 from recipes.models import Ingredient
 
 User = get_user_model()
-MIN_INGREDIENT_AMOUNT = 1
-MAX_INGREDIENT_AMOUNT = 32000
-MIN_COOKING_TIME = 1
-MAX_COOKING_TIME = 32000
 
 
 class CustomUserSerializer(UserSerializer):
